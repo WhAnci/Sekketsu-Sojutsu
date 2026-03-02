@@ -1,0 +1,185 @@
+---
+# NetworkPolicy - 네트워크 트래픽 제어
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: app-network-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: my-app
+  
+  # Ingress 트래픽 (들어오는 트래픽)
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  # 허용하는 Ingress 규칙
+  ingress:
+  # 같은 네임스페이스의 frontend Pod에서만 허용
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: default
+      podSelector:
+        matchLabels:
+          app: frontend
+    ports:
+    - protocol: TCP
+      port: 80
+  
+  # 외부 네임스페이스에서 허용
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 80
+  
+  # Egress 트래픽 (나가는 트래픽)
+  egress:
+  # DNS 쿼리 허용
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53
+  
+  # 같은 네임스페이스의 DB Pod로 접속 허용
+  - to:
+    - podSelector:
+        matchLabels:
+          app: database
+    ports:
+    - protocol: TCP
+      port: 5432
+  
+  # 외부 인터넷 접근 허용 (선택적)
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 169.254.169.254/32  # AWS 메타데이터 제외
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+
+---
+# 모든 트래픽 차단 정책
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all
+  namespace: default
+spec:
+  podSelector: {}  # 모든 Pod 대상
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+# 모든 Ingress 허용 정책
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all-ingress
+  namespace: default
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - {}
+
+---
+# HorizontalPodAutoscaler (HPA) - CPU 기반 자동 스케일링
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: app-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: app-deployment
+  
+  minReplicas: 2
+  maxReplicas: 10
+  
+  metrics:
+  # CPU 사용률 기반
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  
+  # 메모리 사용률 기반
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  
+  # 커스텀 메트릭 기반 (Prometheus 필요)
+  # - type: Pods
+  #   pods:
+  #     metric:
+  #       name: http_requests_per_second
+  #     target:
+  #       type: AverageValue
+  #       averageValue: "1000"
+  
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 15
+      selectPolicy: Min
+    
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+      selectPolicy: Max
+
+---
+# VPA (VerticalPodAutoscaler) - 리소스 권고
+# 설치 필요: https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: app-vpa
+  namespace: default
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: Deployment
+    name: app-deployment
+  
+  updatePolicy:
+    updateMode: "Auto"  # Off, Initial, Recreate, Auto
+  
+  resourcePolicy:
+    containerPolicies:
+    - containerName: app
+      minAllowed:
+        cpu: 50m
+        memory: 64Mi
+      maxAllowed:
+        cpu: 2
+        memory: 2Gi

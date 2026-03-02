@@ -1,0 +1,339 @@
+---
+# Pod - 간단한 Pod 예제
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-pod
+  namespace: default
+  labels:
+    app: test
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+---
+# Pod with InitContainer - 초기화 컨테이너
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-init
+  namespace: default
+spec:
+  initContainers:
+  - name: init-wait
+    image: busybox
+    command: ['sh', '-c', 'until nslookup myservice; do echo waiting for myservice; sleep 2; done']
+  
+  - name: init-config
+    image: busybox
+    command: ['sh', '-c', 'echo "Config initialized" > /shared/config.txt']
+    volumeMounts:
+    - name: shared-volume
+      mountPath: /shared
+  
+  containers:
+  - name: app
+    image: nginx:latest
+    volumeMounts:
+    - name: shared-volume
+      mountPath: /app/config
+  
+  volumes:
+  - name: shared-volume
+    emptyDir: {}
+
+---
+# Pod with Multiple Containers - 사이드카 패턴
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-multi-container
+  namespace: default
+spec:
+  containers:
+  # 메인 컨테이너
+  - name: app
+    image: myapp:latest
+    ports:
+    - containerPort: 8080
+    volumeMounts:
+    - name: app-logs
+      mountPath: /var/log/app
+  
+  # 로그 수집 사이드카
+  - name: log-collector
+    image: fluentd:latest
+    volumeMounts:
+    - name: app-logs
+      mountPath: /var/log/app
+  
+  # 모니터링 사이드카
+  - name: metrics-exporter
+    image: prometheus-exporter:latest
+    ports:
+    - containerPort: 9090
+  
+  volumes:
+  - name: app-logs
+    emptyDir: {}
+
+---
+# Pod with Advanced Probes
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-probes
+  namespace: default
+spec:
+  containers:
+  - name: app
+    image: myapp:latest
+    ports:
+    - containerPort: 8080
+    
+    # HTTP GET 프로브
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8080
+        scheme: HTTP
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+      successThreshold: 1
+    
+    # TCP 소켓 프로브
+    readinessProbe:
+      tcpSocket:
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 2
+    
+    # Exec 프로브 (커맨드 실행)
+    startupProbe:
+      exec:
+        command:
+        - /bin/sh
+        - -c
+        - cat /tmp/ready
+      initialDelaySeconds: 0
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 30
+
+---
+# Pod with Affinity - 노드 선호도/반발도
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-affinity
+  namespace: default
+spec:
+  affinity:
+    # 노드 선호도
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - node-1
+            - node-2
+      
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+          - key: node-type
+            operator: In
+            values:
+            - compute-optimized
+    
+    # Pod 친화성
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - database
+        topologyKey: kubernetes.io/hostname
+    
+    # Pod 반발성
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: app
+              operator: In
+              values:
+              - web
+          topologyKey: kubernetes.io/hostname
+  
+  containers:
+  - name: app
+    image: nginx:latest
+
+---
+# Pod with Tolerations - 테인트 허용
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-tolerations
+  namespace: default
+spec:
+  tolerations:
+  # NoSchedule 테인트 허용
+  - key: "dedicated"
+    operator: "Equal"
+    value: "gpu"
+    effect: "NoSchedule"
+  
+  # NoExecute 테인트 허용 (유예 시간 설정)
+  - key: "gpu"
+    operator: "Equal"
+    value: "true"
+    effect: "NoExecute"
+    tolerationSeconds: 3600
+  
+  # 와일드카드 허용
+  - operator: "Exists"
+    effect: "NoSchedule"
+  
+  nodeSelector:
+    gpu: "true"
+  
+  containers:
+  - name: gpu-app
+    image: tensorflow:latest
+    resources:
+      limits:
+        nvidia.com/gpu: 1
+
+---
+# Pod with Security Context
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-security
+  namespace: default
+spec:
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 3000
+    fsGroup: 2000
+    seLinuxOptions:
+      level: "s0:c123,c456"
+  
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      allowPrivilegeEscalation: false
+      privileged: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+        add:
+        - NET_BIND_SERVICE
+    
+    volumeMounts:
+    - name: cache
+      mountPath: /var/cache
+    - name: run
+      mountPath: /var/run
+  
+  volumes:
+  - name: cache
+    emptyDir: {}
+  - name: run
+    emptyDir: {}
+
+---
+# Pod with Environment Variables
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-env
+  namespace: default
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    
+    env:
+    # 직접 지정
+    - name: ENVIRONMENT
+      value: "production"
+    
+    # Pod 정보
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    
+    # 노드 정보
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    
+    # 리소스 정보
+    - name: MEMORY_LIMIT
+      valueFrom:
+        resourceFieldRef:
+          containerName: app
+          resource: limits.memory
+    - name: CPU_REQUEST
+      valueFrom:
+        resourceFieldRef:
+          containerName: app
+          resource: requests.cpu
+    
+    # ConfigMap 참조
+    - name: DATABASE_HOST
+      valueFrom:
+        configMapKeyRef:
+          name: app-config
+          key: DATABASE_HOST
+    
+    # Secret 참조
+    - name: DATABASE_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: app-secrets
+          key: DATABASE_PASSWORD
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi

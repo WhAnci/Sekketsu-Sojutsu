@@ -1,0 +1,95 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# 메타데이터
+metadata:
+  name: kubernetes-manifests
+
+# Namespace 설정
+namespace: default
+
+# 공통 레이블 추가
+commonLabels:
+  app.kubernetes.io/name: myapp
+  app.kubernetes.io/version: v1
+
+# 공통 주석 추가
+commonAnnotations:
+  managed-by: kustomize
+  team: platform
+
+# 리소스 포함
+resources:
+- deployment.yaml
+- service.yaml
+- configmap-secret.yaml
+- storage.yaml
+
+# 이미지 치환 (kustomize build할 때 이미지 변경)
+images:
+- name: nginx
+  newName: docker.io/library/nginx
+  newTag: "1.24"
+
+# 리플리카 수 설정
+replicas:
+- name: app-deployment
+  count: 3
+
+# ConfigMap/Secret 생성 및 suffix 추가
+configMapGenerator:
+- name: app-config
+  files:
+  - nginx.conf
+  - app.properties
+  literals:
+  - DATABASE_HOST=localhost
+  - LOG_LEVEL=info
+
+secretGenerator:
+- name: app-secrets
+  literals:
+  - DATABASE_PASSWORD=change-me
+  - API_KEY=your-api-key
+  type: Opaque
+
+# 패치 (리소스 수정)
+patchesJson6902:
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: app-deployment
+  patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 5
+
+# Strategic Merge Patch
+patchesStrategicMerge:
+- deployment.yaml: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: app-deployment
+    spec:
+      template:
+        spec:
+          containers:
+          - name: app
+            resources:
+              limits:
+                memory: 512Mi
+
+# 리소스 제한
+vars:
+- name: IMAGE_TAG
+  objref:
+    kind: Service
+    name: app-service-clusterip
+    apiVersion: v1
+  fieldref:
+    fieldpath: spec.ports[0].port
+
+# API 버전 오버라이드 (필요한 경우)
+apiVersion: kustomize.config.k8s.io/v1beta1

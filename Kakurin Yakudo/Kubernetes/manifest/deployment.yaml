@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-deployment
+  namespace: default
+  labels:
+    app: my-app
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+        version: v1
+    spec:
+      # imagePullSecrets:
+      #   - name: docker-secret
+      containers:
+      - name: app
+        # 이미지 설정
+        image: nginx:latest
+        imagePullPolicy: IfNotPresent
+        
+        # 포트 설정
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        # - name: https
+        #   containerPort: 443
+        #   protocol: TCP
+        
+        # 리소스 제한
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        
+        # 환경 변수
+        env:
+        - name: ENV
+          value: "production"
+        - name: LOG_LEVEL
+          value: "info"
+        
+        # ConfigMap과 Secret 마운트
+        # envFrom:
+        # - configMapRef:
+        #     name: app-config
+        # - secretRef:
+        #     name: app-secrets
+        
+        # 헬스 체크
+        # livenessProbe:
+        #   httpGet:
+        #     path: /
+        #     port: 80
+        #   initialDelaySeconds: 10
+        #   periodSeconds: 10
+        #   timeoutSeconds: 5
+        #   failureThreshold: 3
+        
+        # readinessProbe:
+        #   httpGet:
+        #     path: /
+        #     port: 80
+        #   initialDelaySeconds: 5
+        #   periodSeconds: 5
+        #   timeoutSeconds: 3
+        #   failureThreshold: 2
+        
+        # 볼륨 마운트
+        # volumeMounts:
+        # - name: config-volume
+        #   mountPath: /etc/config
+        # - name: data-volume
+        #   mountPath: /data
+      
+      # 볼륨 정의
+      # volumes:
+      # - name: config-volume
+      #   configMap:
+      #     name: app-config
+      # - name: data-volume
+      #   persistentVolumeClaim:
+      #     claimName: app-pvc
+      
+      # 노드 선택
+      # nodeSelector:
+      #   kubernetes.io/hostname: node-1
+      
+      # 친화성 설정
+      # affinity:
+      #   podAntiAffinity:
+      #     preferredDuringSchedulingIgnoredDuringExecution:
+      #     - weight: 100
+      #       podAffinityTerm:
+      #         labelSelector:
+      #           matchExpressions:
+      #           - key: app
+      #             operator: In
+      #             values:
+      #             - my-app
+      #         topologyKey: kubernetes.io/hostname
+      
+      # tolerations 설정
+      # tolerations:
+      # - key: "taint-key"
+      #   operator: "Equal"
+      #   value: "taint-value"
+      #   effect: "NoSchedule"
+  
+  # 전략 설정
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  
+  # 버전 관리
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600

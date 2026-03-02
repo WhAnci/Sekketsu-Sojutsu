@@ -1,0 +1,97 @@
+---
+# StorageClass - 스토리지 프로비저닝 정책
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+provisioner: ebs.csi.aws.com  # AWS EBS 프로비저너
+parameters:
+  type: gp3
+  iops: "3000"
+  throughput: "125"
+  encrypted: "true"
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer  # 또는 Immediate
+
+---
+# PersistentVolume - 클러스터 레벨 스토리지
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-static
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain  # Retain, Delete, Recycle
+  # hostPath 또는 NFS 등
+  hostPath:
+    path: /data/pv
+
+---
+# PersistentVolumeClaim - Pod에서 스토리지 요청
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-pvc
+  namespace: default
+spec:
+  storageClassName: gp3
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+# PersistentVolumeClaim - ReadWriteMany (NFS)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-pvc
+  namespace: default
+spec:
+  storageClassName: nfs-storage
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+# Deployment with PVC 마운트 예제
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-with-storage
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: app-storage
+  template:
+    metadata:
+      labels:
+        app: app-storage
+    spec:
+      containers:
+      - name: app
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: app-data
+          mountPath: /usr/share/nginx/html
+        - name: config-data
+          mountPath: /etc/nginx/conf.d
+          readOnly: true
+      
+      volumes:
+      - name: app-data
+        persistentVolumeClaim:
+          claimName: app-pvc
+      - name: config-data
+        persistentVolumeClaim:
+          claimName: shared-pvc

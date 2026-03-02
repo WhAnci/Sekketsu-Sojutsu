@@ -1,0 +1,254 @@
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: app-hpa-recommended
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: app-deployment
+  
+  minReplicas: 2
+  maxReplicas: 10
+  
+  metrics:
+  # CPU 기반 확장
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  
+  # 메모리 기반 확장
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0 
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      selectPolicy: Max
+    
+    scaleDown:
+      stabilizationWindowSeconds: 300    
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      selectPolicy: Min
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: app-hpa-conservative
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: critical-app
+  
+  minReplicas: 3         
+  maxReplicas: 20
+  
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60   # 더 여유있는 수준
+  
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+  
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30    # 30초 안정화
+      policies:
+      - type: Pods
+        value: 2                        # 한 번에 2개씩만 추가
+        periodSeconds: 60
+      selectPolicy: Max
+    
+    scaleDown:
+      stabilizationWindowSeconds: 600   # 10분 안정화 (축소 지연)
+      policies:
+      - type: Percent
+        value: 10                       # 매우 천천히 감소
+        periodSeconds: 120
+      selectPolicy: Min
+
+---
+# HPA - 공격적 설정 (배치/일회성 작업)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: batch-job-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: batch-processor
+  
+  minReplicas: 1
+  maxReplicas: 50        # 빠른 확장 허용
+  
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80   # 높은 임계값
+  
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 200                # 1초마다 3배씩 확장 가능
+        periodSeconds: 15
+      - type: Pods
+        value: 10
+        periodSeconds: 15
+      selectPolicy: Max
+    
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Pods
+        value: 5
+        periodSeconds: 30
+      selectPolicy: Min
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: app-hpa-custom
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-server
+  
+  minReplicas: 2
+  maxReplicas: 15
+  
+  metrics:
+  # CPU 기반
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  
+  # 커스텀 메트릭: HTTP 요청/초
+  - type: Pods
+    pods:
+      metric:
+        name: http_requests_per_second
+      target:
+        type: AverageValue
+        averageValue: "1000"    # Pod당 평균 1000 req/s
+  
+  # 커스텀 메트릭: 큐 깊이
+  - type: Object
+    object:
+      metric:
+        name: queue_depth
+      describedObject:
+        apiVersion: v1
+        kind: Service
+        name: message-queue
+      target:
+        type: Value
+        value: "100"            # 큐 깊이 100 도달 시 확장
+  
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 30
+      selectPolicy: Max
+    
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 25
+        periodSeconds: 60
+      selectPolicy: Min
+
+---
+# PodDisruptionBudget - 배포 중 Pod 유지 (권장)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: app-pdb
+  namespace: default
+spec:
+  minAvailable: 1              # 최소 1개는 항상 실행
+  # maxUnavailable: 1          # 또는 최대 1개까지 중단 가능
+  selector:
+    matchLabels:
+      app: my-app
+
+---
+# KEDA ScaledObject - KEDA 사용 (더 강력한 자동 확장)
+# 설치: helm repo add kedacore https://kedacore.github.io/charts
+#       helm install keda kedacore/keda --namespace keda --create-namespace
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: app-keda-scaler
+  namespace: default
+spec:
+  scaleTargetRef:
+    name: app-deployment
+  minReplicaCount: 2
+  maxReplicaCount: 10
+  
+  triggers:
+  # CPU 기반
+  - type: cpu
+    metadata:
+      type: Utilization
+      value: "70"
+  
+  # AWS SQS 큐 길이
+  - type: aws-sqs-queue
+    metadata:
+      queueURL: https://sqs.region.amazonaws.com/account/queue-name
+      queueLength: "5"           # 큐 길이 5 도달 시 확장
+      awsRegion: "us-east-1"
+  
+  # 커스텀 Prometheus 메트릭
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus:9090
+      metricName: http_req_rate
+      query: |
+        rate(http_requests_total[1m])
+      threshold: "30"

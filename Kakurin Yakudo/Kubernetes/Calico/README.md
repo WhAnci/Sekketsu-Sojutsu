@@ -1,68 +1,33 @@
 # Calico
-## Install
-### Configure AWS VPC CNI
+## Setup [(Official Guide)](https://docs.tigera.io/calico/latest/getting-started/kubernetes/helm)
+### Download the Helm chart
 ```bash
-cat << EOF > append.yaml
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - patch
-EOF
-kubectl apply -f <(cat <(kubectl get clusterrole aws-node -o yaml) append.yaml)
-kubectl set env  -n kube-system daemonset/aws-node ANNOTATE_POD_IP=true
+helm repo add projectcalico https://docs.tigera.io/calico/charts
 ```
-### Install the Tigera Operator and custom resource definitions
+### Customize the Helm chart
 ```bash
-kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.31.3/manifests/operator-crds.yaml
-kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.31.3/manifests/tigera-operator.yaml
+echo '{ installation: {kubernetesProvider: EKS }}' > values.yaml
 ```
-### Configure the Calico installation
+### Install Calico
 ```bash
-kubectl create -f - <<EOF
-apiVersion: operator.tigera.io/v1
-kind: Installation
-metadata:
-  name: default
-spec:
-  kubernetesProvider: EKS
-  cni:
-    type: AmazonVPC
-  calicoNetwork:
-    bgp: Disabled
----
-
-# This section configures the Calico API server.
-# For more information, see: https://docs.tigera.io/calico/latest/reference/installation/api#operator.tigera.io/v1.APIServer
-apiVersion: operator.tigera.io/v1
-kind: APIServer
-metadata:
-  name: default
-spec: {}
-
----
-
-# Configures the Calico Goldmane flow aggregator.
-apiVersion: operator.tigera.io/v1
-kind: Goldmane
-metadata:
-  name: default
-
----
-
-# Configures the Calico Whisker observability UI.
-apiVersion: operator.tigera.io/v1
-kind: Whisker
-metadata:
-  name: default
-EOF
+kubectl create namespace tigera-operator
+helm install calico projectcalico/tigera-operator --version v3.31.4 -f values.yaml --namespace tigera-operator
 ```
-## Validation
+### Verify
 ```bash
-kubectl get nodes -o wide
+watch kubectl get pods -n calico-system
+```
+### Expected Output
+```bash
+Every 2.0s: kubectl get pods -n calico-system                                                    ip-10-0-4-169.ap-northeast-2.compute.internal: Mon Mar  2 12:40:37 2026
 
-{예상 출력 | 완전히 일치하지 않음}
-NAME              STATUS   ROLES    AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION    CONTAINER-RUNTIME
-<your-hostname>   Ready    master   52m   v1.12.2   10.128.0.28   <none>        Ubuntu 18.04.1 LTS   4.15.0-1023-gcp   docker://18.6.1
+NAME                                       READY   STATUS    RESTARTS   AGE
+calico-apiserver-7689df8d6f-jlpng          1/1     Running   0          48m
+calico-apiserver-7689df8d6f-ljfxp          1/1     Running   0          48m
+calico-kube-controllers-748b7c7dd9-8v4qm   1/1     Running   0          48m
+calico-node-fdc7q                          1/1     Running   0          48m
+calico-node-vq5ss                          1/1     Running   0          48m
+calico-typha-d459b4c85-8twzz               1/1     Running   0          48m
+goldmane-58f96f7c58-h8bxn                  1/1     Running   0          48m
+whisker-84b9469dc4-mqr9b                   2/2     Running   0          47m
 ```

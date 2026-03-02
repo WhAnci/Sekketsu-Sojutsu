@@ -1,0 +1,73 @@
+---
+# Ingress - 외부 트래픽 라우팅
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+  namespace: default
+  labels:
+    app: my-app
+  annotations:
+    # Nginx Ingress Controller
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # nginx.ingress.kubernetes.io/rate-limit: "100"
+    # nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+spec:
+  ingressClassName: nginx  # 또는 "aws-alb", "gce" 등
+  
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: app-service-clusterip
+            port:
+              number: 80
+  
+  - host: api.example.com
+    http:
+      paths:
+      - path: /v1
+        pathType: Prefix
+        backend:
+          service:
+            name: app-service-clusterip
+            port:
+              number: 80
+  
+  # TLS 설정
+  tls:
+  - hosts:
+    - example.com
+    - api.example.com
+    secretName: app-tls
+
+---
+# Ingress - AWS ALB
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: app-ingress-alb
+#   namespace: default
+#   annotations:
+#     alb.ingress.kubernetes.io/scheme: internet-facing
+#     alb.ingress.kubernetes.io/target-type: ip
+#     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+#     alb.ingress.kubernetes.io/ssl-redirect: '443'
+#     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account-id:certificate/id
+# spec:
+#   rules:
+#   - host: example.com
+#     http:
+#       paths:
+#       - path: /
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: app-service-clusterip
+#             port:
+#               number: 80

@@ -1,0 +1,106 @@
+---
+# StatefulSet - 상태를 가진 애플리케이션 (데이터베이스, 캐시 등)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-statefulset
+  namespace: default
+spec:
+  serviceName: mysql-headless  # Headless Service 이름
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        ports:
+        - containerPort: 3306
+          name: mysql
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: password
+        volumeMounts:
+        - name: mysql-storage
+          mountPath: /var/lib/mysql
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+  
+  # PersistentVolume 자동 할당
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql-storage
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: gp3  # 또는 "standard"
+      resources:
+        requests:
+          storage: 10Gi
+
+---
+# Headless Service (StatefulSet용)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-headless
+  namespace: default
+spec:
+  clusterIP: None  # Headless Service
+  selector:
+    app: mysql
+  ports:
+  - port: 3306
+    targetPort: 3306
+
+---
+# DaemonSet - 각 노드에 하나씩 실행
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: logging-agent
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: logging-agent
+  template:
+    metadata:
+      labels:
+        app: logging-agent
+    spec:
+      # 마스터 노드에서도 실행하려면 (기본값으로 마스터 제외)
+      # tolerations:
+      # - key: node-role.kubernetes.io/master
+      #   effect: NoSchedule
+      
+      containers:
+      - name: fluentd
+        image: fluent/fluentd:latest
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+      
+      volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log

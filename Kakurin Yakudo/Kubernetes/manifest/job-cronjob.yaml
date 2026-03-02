@@ -1,0 +1,158 @@
+---
+# Job - 한 번 실행하고 완료되는 작업
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: backup-job
+  namespace: default
+spec:
+  # 성공해야 하는 완료 수
+  completions: 1
+  # 병렬 실행 수
+  parallelism: 1
+  # 재시도 횟수
+  backoffLimit: 3
+  # 타임아웃 (초 단위)
+  activeDeadlineSeconds: 300
+  # Job이 보관되는 히스토리 기간
+  # ttlSecondsAfterFinished: 3600
+  
+  template:
+    spec:
+      # 재시작 정책
+      restartPolicy: Never
+      
+      containers:
+      - name: backup
+        image: backup-tool:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Starting backup..."
+          # 백업 커맨드
+          sleep 10
+          echo "Backup completed"
+        
+        env:
+        - name: BACKUP_PATH
+          value: "/backup"
+        
+        volumeMounts:
+        - name: backup-volume
+          mountPath: /backup
+        
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      
+      volumes:
+      - name: backup-volume
+        persistentVolumeClaim:
+          claimName: backup-pvc
+
+---
+# CronJob - 주기적으로 실행되는 작업
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cleanup-cronjob
+  namespace: default
+spec:
+  # Cron 표현식 (분 시간 일 월 요일)
+  # "0 0 * * *" = 매일 자정
+  # "0 2 * * 0" = 매주 일요일 새벽 2시
+  # "*/30 * * * *" = 30분마다
+  schedule: "0 2 * * *"
+  
+  # 동시 실행 정책
+  concurrencyPolicy: Allow  # Allow, Forbid, Replace
+  
+  # 성공한 Job 히스토리 보관 수
+  successfulJobsHistoryLimit: 3
+  # 실패한 Job 히스토리 보관 수
+  failedJobsHistoryLimit: 1
+  
+  # Job 타임아웃
+  startingDeadlineSeconds: 0
+  
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          
+          containers:
+          - name: cleanup
+            image: cleanup-tool:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Starting cleanup at $(date)"
+              # 정리 커맨드
+              find /data -type f -mtime +30 -delete
+              echo "Cleanup completed"
+            
+            env:
+            - name: LOG_LEVEL
+              value: "info"
+            
+            volumeMounts:
+            - name: data-volume
+              mountPath: /data
+            
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 300m
+                memory: 256Mi
+          
+          volumes:
+          - name: data-volume
+            persistentVolumeClaim:
+              claimName: data-pvc
+
+---
+# Parallel Job 예제
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: parallel-job
+  namespace: default
+spec:
+  # 총 완료해야 하는 작업 수
+  completions: 10
+  # 동시에 실행할 Pod 수
+  parallelism: 3
+  # 각 Pod가 처리할 작업 수
+  completionMode: Indexed
+  backoffLimit: 3
+  
+  template:
+    spec:
+      restartPolicy: Never
+      
+      containers:
+      - name: worker
+        image: worker-app:latest
+        env:
+        - name: JOB_COMPLETION_INDEX
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+        
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi

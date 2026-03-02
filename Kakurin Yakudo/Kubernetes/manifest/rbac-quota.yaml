@@ -1,0 +1,170 @@
+---
+# Namespace - 네임스페이스
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    name: production
+    environment: prod
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging
+  labels:
+    name: staging
+    environment: staging
+
+---
+# ServiceAccount - 서비스 계정
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-serviceaccount
+  namespace: default
+
+---
+# Role - 역할 (네임스페이스 수준)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: app-role
+  namespace: default
+rules:
+# Pod 읽기
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+
+# Pod 로그 읽기
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
+
+# ConfigMap 읽기
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+
+# Secret 읽기 (예민한 권한)
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+
+# Pod 실행
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create", "get"]
+
+# Deployment 조회
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets"]
+  verbs: ["get", "list", "watch"]
+
+---
+# RoleBinding - 역할 바인딩
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-rolebinding
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: app-role
+subjects:
+- kind: ServiceAccount
+  name: app-serviceaccount
+  namespace: default
+
+---
+# ClusterRole - 클러스터 수준 역할 (모든 네임스페이스)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: admin-clusterrole
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+
+---
+# ClusterRoleBinding - 클러스터 역할 바인딩
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-clusterrolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: admin-clusterrole
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kube-system
+
+---
+# ResourceQuota - 리소스 할당량
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-quota
+  namespace: default
+spec:
+  hard:
+    # Pod 개수 제한
+    pods: "10"
+    # 요청 리소스 제한
+    requests.cpu: "5"
+    requests.memory: "10Gi"
+    requests.storage: "50Gi"
+    # 제한 리소스 제한
+    limits.cpu: "10"
+    limits.memory: "20Gi"
+    # 기타
+    persistentvolumeclaims: "5"
+  scopes:
+  - BestEffort  # QoS best effort Pod만 계산
+  # - NotBestEffort  # best effort가 아닌 Pod만 계산
+
+---
+# LimitRange - 리소스 제한
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: resource-limits
+  namespace: default
+spec:
+  limits:
+  # Container 기본값
+  - type: Container
+    default:
+      cpu: 500m
+      memory: 512Mi
+    defaultRequest:
+      cpu: 100m
+      memory: 128Mi
+    max:
+      cpu: 2
+      memory: 2Gi
+    min:
+      cpu: 50m
+      memory: 64Mi
+  
+  # Pod 기본값
+  - type: Pod
+    max:
+      cpu: 4
+      memory: 4Gi
+    min:
+      cpu: 100m
+      memory: 128Mi
+  
+  # PVC 기본값
+  - type: PersistentVolumeClaim
+    max:
+      storage: 100Gi
+    min:
+      storage: 1Gi
