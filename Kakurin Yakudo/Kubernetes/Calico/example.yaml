@@ -1,0 +1,103 @@
+apiVersion: projectcalico.org/v3
+kind: NetworkPolicy
+metadata:
+  name: app-network-policy
+  namespace: default
+spec:
+  # 이 정책이 적용될 Pod 선택
+  selector: app == 'my-app'
+
+  # 적용할 트래픽 타입
+  types:
+  - Ingress
+  - Egress
+
+  ############################################################
+  # INGRESS RULES (들어오는 트래픽 제어)
+  ############################################################
+  ingress:
+
+  # 1️⃣ 같은 namespace 내 특정 앱만 허용
+  - action: Allow
+    protocol: TCP
+    source:
+      selector: app == 'frontend'
+    destination:
+      ports:
+      - 80
+
+  # 2️⃣ 특정 namespace에서만 허용
+  # - action: Allow
+  #   protocol: TCP
+  #   source:
+  #     namespaceSelector: projectcalico.org/name == 'monitoring'
+  #   destination:
+  #     ports:
+  #     - 80
+
+  # 3️⃣ 특정 CIDR 허용 (회사 IP 등)
+  # - action: Allow
+  #   protocol: TCP
+  #   source:
+  #     nets:
+  #     - 10.0.0.0/16
+  #     - 1.2.3.4/32
+  #   destination:
+  #     ports:
+  #     - 80
+
+  # 4️⃣ ALB / 외부 LB 트래픽 허용 예시
+  # - action: Allow
+  #   protocol: TCP
+  #   source:
+  #     nets:
+  #     - 0.0.0.0/0
+  #   destination:
+  #     ports:
+  #     - 80
+
+  ############################################################
+  # EGRESS RULES (나가는 트래픽 제어)
+  ############################################################
+  egress:
+
+  # 5️⃣ DNS 허용 (EKS 필수)
+  - action: Allow
+    protocol: UDP
+    destination:
+      namespaceSelector: projectcalico.org/name == 'kube-system'
+      selector: k8s-app == 'kube-dns'
+      ports:
+      - 53
+
+  - action: Allow
+    protocol: TCP
+    destination:
+      namespaceSelector: projectcalico.org/name == 'kube-system'
+      selector: k8s-app == 'kube-dns'
+      ports:
+      - 53
+
+  # 6️⃣ 특정 backend 서비스로만 허용
+  # - action: Allow
+  #   protocol: TCP
+  #   destination:
+  #     selector: app == 'backend'
+  #     ports:
+  #     - 8080
+
+  # 7️⃣ 외부 인터넷 전체 허용 (필요 시 주석 해제)
+  # - action: Allow
+  #   protocol: TCP
+  #   destination:
+  #     nets:
+  #     - 0.0.0.0/0
+
+  # 8️⃣ 특정 CIDR만 허용
+  # - action: Allow
+  #   protocol: TCP
+  #   destination:
+  #     nets:
+  #     - 10.0.0.0/16
+  #     ports:
+  #     - 443
