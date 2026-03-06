@@ -1,6 +1,6 @@
 #!/bin/bash
 ACCOUNT_ID=586639730662
-CLUSTER_NAME=demo
+CLUSTER_NAME=wsi-cluster
 REGION=ap-northeast-2
 
 SA_NS=external-secrets
