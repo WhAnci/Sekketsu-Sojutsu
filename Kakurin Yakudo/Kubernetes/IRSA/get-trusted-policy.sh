@@ -1,3 +1,4 @@
+#!/bin/bash
 ACCOUNT_ID=586639730662
 CLUSTER_NAME=demo
 REGION=ap-northeast-2
