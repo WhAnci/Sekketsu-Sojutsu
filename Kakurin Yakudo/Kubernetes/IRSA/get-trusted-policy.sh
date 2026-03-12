@@ -24,7 +24,7 @@ cat > trust-policy.json <<EOF
       "Condition": {
         "StringEquals": {
           "${ISSUER_HOSTPATH}:aud": "sts.amazonaws.com",
-          "${ISSUER_HOSTPATH}:sub": "system:serviceaccount:${SA_NS}:${SA_NAME}"
+          "${ISSUER_HOSTPATH}:sub": "system:serviceaccount:${SA_NAME}:${SA_NS}"
         }
       }
     }
