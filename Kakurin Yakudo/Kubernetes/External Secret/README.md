@@ -26,8 +26,9 @@ aws iam create-open-id-connect-provider \
 ### IRSA
 #### [Trusted Policy](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Kakurin%20Yakudo/Kubernetes/IRSA/get-trusted-policy.sh)
 #### Service Account
+```bash
+SA_NAME=
+SA_NS=
+kubectl patch sa $SA_NAME -n $SA_NS \
+  -p '{"metadata":{"annotations":{"eks.amazonaws.com/role-arn":"arn:aws:iam::586639730662:role/gjmstSecretsRole"}}}'
 ```
-metadata:
-  name: gjmst-secrets-sa
-  namespace: gjmst
-  annotations:
