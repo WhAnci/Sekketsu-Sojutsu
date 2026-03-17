@@ -34,6 +34,6 @@ alias ke="kubectl edit"
 alias kc="kubectl create"
 EOF
 
-source ~./bashrc
+source ~/.bashrc
 # Verify
 k version --client
