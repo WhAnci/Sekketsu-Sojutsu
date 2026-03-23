@@ -29,5 +29,8 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
   -c file:/home/ec2-user/cwagent-config.json \
   -s
 
+# 동작 확인
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -m ec2 -a status
+
 systemctl enable amazon-cloudwatch-agent
 ```
