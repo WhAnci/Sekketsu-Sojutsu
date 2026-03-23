@@ -3,7 +3,9 @@
     "metrics_collected": {
       "mem": {
         "measurement": [
-          "mem_used_percent"
+          "mem_used_percent",
+          "mem_total",
+          "mem_used"
         ],
         "metrics_collection_interval": 60
       }
