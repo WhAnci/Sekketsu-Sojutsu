@@ -2,7 +2,7 @@ import json
 import pymysql
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime  # created_at 미사용 시 이 줄도 제거 가능
 
 # -----------------------------------------------------------
 # Lambda Environment Variables (Lambda 콘솔에서 설정)
@@ -80,7 +80,6 @@ def lambda_handler(event, context):
 
     # -------------------------------------------------------
     # POST /item → 아이템 생성
-    #   자동 추가 필드: id (UUID), created_at (현재 타임스탬프)
     # -------------------------------------------------------
     if http_method == "POST" and path == "/item":
         try:
@@ -90,7 +89,15 @@ def lambda_handler(event, context):
             if not data:
                 return _response(400, {"message": f"Request body must contain at least one of: {CREATE_ALLOWED_FIELDS}"})
 
-            data["id"]         = str(uuid.uuid4())
+            # -------------------------------------------------------
+            # 자동 생성 필드: id (UUID)
+            # -------------------------------------------------------
+            data["id"] = str(uuid.uuid4())
+
+            # -------------------------------------------------------
+            # 자동 생성 필드: created_at (현재 타임스탬프)
+            # 테이블에 created_at 커럼이 없으면 아래 줄을 주석 처리하세요.
+            # -------------------------------------------------------
             data["created_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
             columns      = ", ".join(data.keys())

@@ -2,7 +2,7 @@ import json
 import pymysql
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime  # created_at 미사용 시 이 줄도 제거 가능
 
 # -----------------------------------------------------------
 # Lambda Environment Variables (Lambda 콘솔에서 설정)
@@ -106,17 +106,14 @@ def lambda_handler(event, context):
             conn = get_connection()
             with conn.cursor() as cursor:
                 if item_id:
-                    # 단일 조회 — id가 있으면 Filter/Pagination 무시
                     cursor.execute("SELECT * FROM item WHERE id = %s", (item_id,))
                     result = cursor.fetchone()
                     if not result:
                         return _response(404, {"message": "Item not found"})
                 else:
-                    # Pagination
                     limit  = int(params.get("limit", DEFAULT_LIMIT))
                     offset = int(params.get("offset", 0))
 
-                    # Filter
                     where, filter_values = build_filter_clause(params)
 
                     sql    = f"SELECT * FROM item {where} LIMIT %s OFFSET %s"
@@ -125,7 +122,6 @@ def lambda_handler(event, context):
                     cursor.execute(sql, values)
                     items = cursor.fetchall()
 
-                    # 전체 건수 조회 (페이지네이션 메타)
                     cursor.execute(f"SELECT COUNT(*) AS total FROM item {where}", filter_values)
                     total = cursor.fetchone()["total"]
 
@@ -142,7 +138,6 @@ def lambda_handler(event, context):
 
     # -------------------------------------------------------
     # POST /item → 아이템 생성
-    #   자동 추가 필드: id (UUID), created_at (현재 타임스탬프)
     # -------------------------------------------------------
     if http_method == "POST" and path == "/item":
         try:
@@ -152,7 +147,15 @@ def lambda_handler(event, context):
             if not data:
                 return _response(400, {"message": f"Request body must contain at least one of: {CREATE_ALLOWED_FIELDS}"})
 
-            data["id"]         = str(uuid.uuid4())
+            # -------------------------------------------------------
+            # 자동 생성 필드: id (UUID)
+            # -------------------------------------------------------
+            data["id"] = str(uuid.uuid4())
+
+            # -------------------------------------------------------
+            # 자동 생성 필드: created_at (현재 타임스탬프)
+            # 테이블에 created_at 커럼이 없으면 아래 줄을 주석 처리하세요.
+            # -------------------------------------------------------
             data["created_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
             columns      = ", ".join(data.keys())
