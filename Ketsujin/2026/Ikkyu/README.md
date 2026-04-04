@@ -6,4 +6,3 @@ VPC 두개 생성후 Peering
 ## EC2
 
 ## [CloudWatch](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Ikkyu/CloudWatch/README.md)
-- [[CloudWatch Agent]](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Ikkyu/CloudWatch/README.md)
