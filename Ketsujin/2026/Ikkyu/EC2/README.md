@@ -5,11 +5,25 @@
 ```bash
 # 파이썬 및 pip 설치
 sudo apt update
-sudo apt install -y python3 python3-pip python3-venv
+sudo apt install -y python3 python3-pip python3-venv jq
 
 # 가상환경 생성 및 활성화
 python3 -m venv venv
 source venv/bin/activate
+```
+
+## Secrets Manager 환경변수 설정
+
+```bash
+# 시크릿 값 전체 가져오기
+SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "설정한 SecretName" --query "SecretString" --output text)
+
+# 환경변수로 설정 - 시크릿매니저에 등록한 key이름과 동일해야 함
+export DB_HOST=$(echo $SECRET_JSON | jq -r '.DB_HOST')
+export DB_PORT=$(echo $SECRET_JSON | jq -r '.DB_PORT')
+export DB_USERNAME=$(echo $SECRET_JSON | jq -r '.DB_USERNAME')
+export DB_PASSWORD=$(echo $SECRET_JSON | jq -r '.DB_PASSWORD')
+export DB_NAME=$(echo $SECRET_JSON | jq -r '.DB_NAME')
 ```
 
 ## FastAPI + Gunicorn
