@@ -3,13 +3,8 @@
 ## 환경 세팅
 
 ```bash
-# 파이썬 및 pip 설치
 sudo apt update
-sudo apt install -y python3 python3-pip python3-venv jq
-
-# 가상환경 생성 및 활성화
-python3 -m venv venv
-source venv/bin/activate
+sudo apt install -y python3 python3-pip jq
 ```
 
 ## Secrets Manager 환경변수 설정
@@ -58,7 +53,7 @@ After=network.target
 [Service]
 User=ubuntu
 WorkingDirectory=/home/ubuntu/app
-ExecStart=/home/ubuntu/app/venv/bin/gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
+ExecStart=/usr/bin/gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
 Restart=always
 
 [Install]
