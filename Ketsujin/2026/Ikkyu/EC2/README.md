@@ -13,12 +13,16 @@ sudo apt install -y python3 python3-pip jq
 # 시크릿 값 전체 가져오기
 SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "설정한 SecretName" --query "SecretString" --output text)
 
-# 환경변수로 설정 - 시크릿매니저에 등록한 key이름과 동일해야 함
-export DB_HOST=$(echo $SECRET_JSON | jq -r '.DB_HOST')
-export DB_PORT=$(echo $SECRET_JSON | jq -r '.DB_PORT')
-export DB_USERNAME=$(echo $SECRET_JSON | jq -r '.DB_USERNAME')
-export DB_PASSWORD=$(echo $SECRET_JSON | jq -r '.DB_PASSWORD')
-export DB_NAME=$(echo $SECRET_JSON | jq -r '.DB_NAME')
+# 환경변수 파일로 저장 - systemd EnvironmentFile에서 가져옴
+cat <<EOF | sudo tee /etc/app.env
+DB_HOST=$(echo $SECRET_JSON | jq -r '.DB_HOST')
+DB_PORT=$(echo $SECRET_JSON | jq -r '.DB_PORT')
+DB_USERNAME=$(echo $SECRET_JSON | jq -r '.DB_USERNAME')
+DB_PASSWORD=$(echo $SECRET_JSON | jq -r '.DB_PASSWORD')
+DB_NAME=$(echo $SECRET_JSON | jq -r '.DB_NAME')
+EOF
+
+sudo chmod 600 /etc/app.env
 ```
 
 ## FastAPI + Gunicorn
@@ -53,7 +57,10 @@ After=network.target
 [Service]
 User=ubuntu
 WorkingDirectory=/home/ubuntu/app
+EnvironmentFile=/etc/app.env
 ExecStart=/usr/bin/gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
+StandardOutput=journal
+StandardError=journal
 Restart=always
 
 [Install]
