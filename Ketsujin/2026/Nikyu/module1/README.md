@@ -1,4 +1,4 @@
-# Shared Network Storage
+# Shared Network Storage [[돌아가기]](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/README.md)
 
 ## Elastic File System
 마운트 타겟에 IP 지정할 수 있음
