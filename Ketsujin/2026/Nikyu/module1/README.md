@@ -1,9 +1,12 @@
 # Shared Network Storage
 
 ## Elastic File System
+마운트 타겟에 IP 지정할 수 있음
+### Security Group
+TCP 2049 Port </br>
+요구사항에 따라 알잘딱
 
 ## EFS Access Point
-
 
 ## EFS on EC2
 ### Dependency
