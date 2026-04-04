@@ -3,5 +3,4 @@
 
 ## Glue
 
-## Athena
-[[Athena.md]](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module2/Athena.md)
+## [Athena](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module2/Athena.md)
