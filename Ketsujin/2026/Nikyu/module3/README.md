@@ -6,7 +6,7 @@
 - [[S3]](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module3/S3.md)
 - [[SSM Parameter Store]](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module3/SSM.md)
 
-## 공통 팔
+## 공통 팝
 
 | 서비스 | Resource ARN 패턴 | 주의사항 |
 |--------|-----------------|----------|
