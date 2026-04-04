@@ -17,3 +17,25 @@
 - 파일 시스템 작업 시 사용하는 주 그룹 ID
 - 파일 생성 시 이 GID가 기본 그룹으로 설정
 - 예: 1000
+
+### Secondary Group IDs
+- 기본 Group ID 외에 추가로 적용할 보조 그룹 ID 목록
+- 여러 그룹에 걸친 파일 접근 권한이 필요할 때 사용
+- 예: [2000, 3000] → 해당 GID를 가진 파일에도 그룹 권한으로 접근 가능
+- 최대 16개까지 지정 가능
+
+## Root Directory Creation Permissions
+### Owner User ID
+- Root Directory Path가 존재하지 않을 때 자동 생성되는 디렉토리의 소유자 UID
+- POSIX User의 User ID와 다르게 설정 가능
+- 예: 1000
+
+### Owner Group ID
+- 자동 생성되는 디렉토리의 소유 그룹 GID
+- POSIX User의 Group ID와 다르게 설정 가능
+- 예: 1000
+
+### Access point Permissions
+- 자동 생성되는 디렉토리에 적용할 Unix 퍼미션 (8진수)
+- 클라이언트가 디렉토리에 진입하려면 실행(x) 비트가 필요
+- 예: 0755 → 소유자는 rwx, 그룹/기타는 r-x
