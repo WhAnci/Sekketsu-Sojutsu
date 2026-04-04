@@ -6,7 +6,7 @@
 TCP 2049 Port </br>
 요구사항에 따라 알잘딱
 
-## EFS Access Point
+## [EFS Access Point](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module1/Access%20Point.md)
 
 ## EFS on EC2
 ### Dependency
