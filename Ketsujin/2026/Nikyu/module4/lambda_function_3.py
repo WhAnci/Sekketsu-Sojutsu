@@ -25,7 +25,10 @@ RDS_DB       = os.getenv("RDS_DB")
 CREATE_ALLOWED_FIELDS = ["name", "category", "price"]
 
 # -----------------------------------------------------------
-# PUT /item 허용 필드 — id, created_at 은 수정 불가입니다.
+# PUT /item   허용 필드 — id, created_at 은 수정 불가입니다.
+# PATCH /item 허용 필드 — PUT과 동일한 필드를 사용합니다.
+#   PUT   : 전체 교체 (body에 없는 필드는 그대로 유지됩니다 — 구현 상 partial과 동일)
+#   PATCH : 부분 업데이트 (명시한 필드만 수정)
 # 요구사항에 따라 자유롭게 수정하세요.
 # -----------------------------------------------------------
 UPDATE_ALLOWED_FIELDS = ["name", "category", "price"]
@@ -117,8 +120,9 @@ def lambda_handler(event, context):
             return _response(500, {"message": str(e)})
 
     # -------------------------------------------------------
-    # PUT /item?id=<id> → 아이템 수정
-    #   id, created_at 은 수정 불가
+    # PUT /item?id=<id> → 아이템 전체 수정
+    #   - body에 명시한 UPDATE_ALLOWED_FIELDS 필드를 모두 덮어씁니다.
+    #   - id, created_at 은 수정 불가 (IMMUTABLE_FIELDS)
     # -------------------------------------------------------
     # [주석 처리] Path Parameter 방식
     # PUT /item/<id>  → 아이템 수정
@@ -158,6 +162,53 @@ def lambda_handler(event, context):
             conn.commit()
             conn.close()
             return _response(200, {"message": "Item updated", "id": item_id})
+        except Exception as e:
+            return _response(500, {"message": str(e)})
+
+    # -------------------------------------------------------
+    # PATCH /item?id=<id> → 아이템 부분 수정
+    #   - PUT과 달리 body에 포함된 필드만 선택적으로 업데이트합니다.
+    #   - id, created_at 은 수정 불가 (IMMUTABLE_FIELDS)
+    # -------------------------------------------------------
+    # [주석 처리] Path Parameter 방식
+    # PATCH /item/<id>  → 아이템 부분 수정
+    # path_parts = path.strip("/").split("/")
+    # if http_method == "PATCH" and len(path_parts) == 2 and path_parts[0] == "item":
+    #     item_id = path_parts[1]
+    #     ...
+    # -------------------------------------------------------
+
+    if http_method == "PATCH" and path == "/item":
+        item_id = params.get("id")
+        if not item_id:
+            return _response(400, {"message": "Query parameter 'id' is required"})
+        try:
+            body = json.loads(event.get("body") or "{}")
+
+            # PATCH: body에 있는 필드만 추려서 부분 업데이트
+            data = {
+                k: body[k]
+                for k in UPDATE_ALLOWED_FIELDS
+                if k in body and k not in IMMUTABLE_FIELDS
+            }
+            if not data:
+                return _response(400, {"message": f"Request body must contain at least one of: {UPDATE_ALLOWED_FIELDS}"})
+
+            set_clause = ", ".join([f"{k} = %s" for k in data.keys()])
+            values     = list(data.values()) + [item_id]
+
+            conn = get_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    f"UPDATE item SET {set_clause} WHERE id = %s",
+                    values,
+                )
+                if cursor.rowcount == 0:
+                    conn.close()
+                    return _response(404, {"message": "Item not found"})
+            conn.commit()
+            conn.close()
+            return _response(200, {"message": "Item patched", "id": item_id})
         except Exception as e:
             return _response(500, {"message": str(e)})
 
