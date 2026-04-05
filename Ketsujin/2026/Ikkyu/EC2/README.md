@@ -3,8 +3,8 @@
 ## 환경 세팅
 
 ```bash
-sudo apt update
-sudo apt install -y python3 python3-pip jq
+sudo dnf update
+sudo dnf install -y python3 python3-pip jq
 ```
 
 ## Secrets Manager 환경변수 설정
