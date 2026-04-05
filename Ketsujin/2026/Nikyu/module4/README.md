@@ -7,3 +7,4 @@
 ### [function 2](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module4/lambda_function_2.py)
 ### [function 3](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module4/lambda_function_3.py)
 ### [function 4](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module4/lambda_function_4.py)
+### [function 5](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module4/lambda_function_5.py)
