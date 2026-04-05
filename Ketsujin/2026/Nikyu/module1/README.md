@@ -23,7 +23,7 @@ APID=
 DIR=
 dnf install python3-pip amazon-efs-utils -y
 pip3 install botocore
-mkdir $D
+mkdir $Dㅑㄲ
 cat <<EOF >> /etc/fstab
 $FSID:/  $DIR  efs  _netdev,noresvport,tls,accesspoint=$APID  0  0
 #                                      ^ iam 옵션 추가가능
