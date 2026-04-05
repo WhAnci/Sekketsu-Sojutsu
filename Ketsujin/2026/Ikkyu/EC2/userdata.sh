@@ -1,5 +1,7 @@
 #!/bin/bash
-dnf install python3.11 python3.11-pip amazon-cloudwatch-agent -y # Boto3 Python 3.9 버전부터 지원안함 이슈
+
+# Boto3 Python 3.9 버전부터 지원안함 이슈
+dnf install python3.11 python3.11-pip amazon-cloudwatch-agent -y
 
 cat <<EOF > requirements.txt
 Flask>=2.0
