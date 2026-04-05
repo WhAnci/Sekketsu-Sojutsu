@@ -25,7 +25,8 @@ RDS_DB       = os.getenv("RDS_DB")
 CREATE_ALLOWED_FIELDS = ["name", "category", "price"]
 
 # -----------------------------------------------------------
-# PUT /item 허용 필드 — id, created_at 은 수정 불가입니다.
+# PUT /item  허용 필드 — id, created_at 은 수정 불가입니다.
+# PATCH /item 도 동일한 허용 필드 사용 (부분 수정)
 # 요구사항에 따라 자유롭게 수정하세요.
 # -----------------------------------------------------------
 UPDATE_ALLOWED_FIELDS = ["name", "category", "price"]
@@ -37,7 +38,7 @@ IMMUTABLE_FIELDS      = {"id", "created_at"}
 # 요구사항에 따라 자유롭게 추가 / 삭제 / 변경하세요.
 #
 # FILTER_FIELDS      : 동등(=) 조건으로 필터링할 컨럼
-# FILTER_RANGE_FIELDS: 범위 조건(<, >) 필터링할 컨럼
+# FILTER_RANGE_FIELDS: 범위 조건(<, >) 필터링할 컬럼
 #   예) price_lt → price < %s  /  price_gt → price > %s
 # -----------------------------------------------------------
 FILTER_FIELDS       = ["category"]
@@ -130,6 +131,28 @@ def lambda_handler(event, context):
             return _response(500, {"message": str(e)})
 
     # -------------------------------------------------------
+    # GET /item/{id} → 단일 아이템 조회 (Path Parameter 방식)
+    #   API Gateway 에서 리소스를 /item/{id} 로 설정하고
+    #   아래 주석을 해제하면 사용할 수 있습니다.
+    #
+    # path_parts = path.strip("/").split("/")
+    # if http_method == "GET" and len(path_parts) == 2 and path_parts[0] == "item":
+    #     item_id = path_parts[1]
+    #     try:
+    #         conn = get_connection()
+    #         with conn.cursor() as cursor:
+    #             cursor.execute("SELECT * FROM item WHERE id = %s", (item_id,))
+    #             result = cursor.fetchone()
+    #             if not result:
+    #                 conn.close()
+    #                 return _response(404, {"message": "Item not found"})
+    #         conn.close()
+    #         return _response(200, result)
+    #     except Exception as e:
+    #         return _response(500, {"message": str(e)})
+    # -------------------------------------------------------
+
+    # -------------------------------------------------------
     # POST /item → 아이템 생성
     # -------------------------------------------------------
     if http_method == "POST" and path == "/item":
@@ -160,7 +183,7 @@ def lambda_handler(event, context):
             return _response(500, {"message": str(e)})
 
     # -------------------------------------------------------
-    # PUT /item?id=<id> → 아이템 수정
+    # PUT /item?id=<id> → 아이템 전체 수정 (Query Parameter 방식)
     #   id, created_at 은 수정 불가
     # -------------------------------------------------------
     if http_method == "PUT" and path == "/item":
@@ -197,6 +220,108 @@ def lambda_handler(event, context):
             return _response(500, {"message": str(e)})
 
     # -------------------------------------------------------
+    # PUT /item/{id} → 아이템 전체 수정 (Path Parameter 방식)
+    #   API Gateway 에서 리소스를 /item/{id} 로 설정하고
+    #   아래 주석을 해제하면 사용할 수 있습니다.
+    #
+    # path_parts = path.strip("/").split("/")
+    # if http_method == "PUT" and len(path_parts) == 2 and path_parts[0] == "item":
+    #     item_id = path_parts[1]
+    #     try:
+    #         body = json.loads(event.get("body") or "{}")
+    #         data = {
+    #             k: body[k]
+    #             for k in UPDATE_ALLOWED_FIELDS
+    #             if k in body and k not in IMMUTABLE_FIELDS
+    #         }
+    #         if not data:
+    #             return _response(400, {"message": f"Request body must contain at least one of: {UPDATE_ALLOWED_FIELDS}"})
+    #         set_clause = ", ".join([f"{k} = %s" for k in data.keys()])
+    #         values     = list(data.values()) + [item_id]
+    #         conn = get_connection()
+    #         with conn.cursor() as cursor:
+    #             cursor.execute(f"UPDATE item SET {set_clause} WHERE id = %s", values)
+    #             if cursor.rowcount == 0:
+    #                 conn.close()
+    #                 return _response(404, {"message": "Item not found"})
+    #         conn.commit()
+    #         conn.close()
+    #         return _response(200, {"message": "Item updated", "id": item_id})
+    #     except Exception as e:
+    #         return _response(500, {"message": str(e)})
+    # -------------------------------------------------------
+
+    # -------------------------------------------------------
+    # PATCH /item?id=<id> → 아이템 부분 수정 (Query Parameter 방식)
+    #   PUT 과 달리 body 에 없는 필드는 그대로 유지됩니다.
+    #   id, created_at 은 수정 불가
+    # -------------------------------------------------------
+    if http_method == "PATCH" and path == "/item":
+        item_id = params.get("id")
+        if not item_id:
+            return _response(400, {"message": "Query parameter 'id' is required"})
+        try:
+            body = json.loads(event.get("body") or "{}")
+
+            data = {
+                k: body[k]
+                for k in UPDATE_ALLOWED_FIELDS
+                if k in body and k not in IMMUTABLE_FIELDS
+            }
+            if not data:
+                return _response(400, {"message": f"Request body must contain at least one of: {UPDATE_ALLOWED_FIELDS}"})
+
+            set_clause = ", ".join([f"{k} = %s" for k in data.keys()])
+            values     = list(data.values()) + [item_id]
+
+            conn = get_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    f"UPDATE item SET {set_clause} WHERE id = %s",
+                    values,
+                )
+                if cursor.rowcount == 0:
+                    conn.close()
+                    return _response(404, {"message": "Item not found"})
+            conn.commit()
+            conn.close()
+            return _response(200, {"message": "Item patched", "id": item_id})
+        except Exception as e:
+            return _response(500, {"message": str(e)})
+
+    # -------------------------------------------------------
+    # PATCH /item/{id} → 아이템 부분 수정 (Path Parameter 방식)
+    #   API Gateway 에서 리소스를 /item/{id} 로 설정하고
+    #   아래 주석을 해제하면 사용할 수 있습니다.
+    #
+    # path_parts = path.strip("/").split("/")
+    # if http_method == "PATCH" and len(path_parts) == 2 and path_parts[0] == "item":
+    #     item_id = path_parts[1]
+    #     try:
+    #         body = json.loads(event.get("body") or "{}")
+    #         data = {
+    #             k: body[k]
+    #             for k in UPDATE_ALLOWED_FIELDS
+    #             if k in body and k not in IMMUTABLE_FIELDS
+    #         }
+    #         if not data:
+    #             return _response(400, {"message": f"Request body must contain at least one of: {UPDATE_ALLOWED_FIELDS}"})
+    #         set_clause = ", ".join([f"{k} = %s" for k in data.keys()])
+    #         values     = list(data.values()) + [item_id]
+    #         conn = get_connection()
+    #         with conn.cursor() as cursor:
+    #             cursor.execute(f"UPDATE item SET {set_clause} WHERE id = %s", values)
+    #             if cursor.rowcount == 0:
+    #                 conn.close()
+    #                 return _response(404, {"message": "Item not found"})
+    #         conn.commit()
+    #         conn.close()
+    #         return _response(200, {"message": "Item patched", "id": item_id})
+    #     except Exception as e:
+    #         return _response(500, {"message": str(e)})
+    # -------------------------------------------------------
+
+    # -------------------------------------------------------
     # DELETE /item?id=<id> → 아이템 삭제 (Query Parameter 방식)
     # -------------------------------------------------------
     if http_method == "DELETE" and path == "/item":
@@ -222,7 +347,6 @@ def lambda_handler(event, context):
     #   아래 주석을 해제하면 사용할 수 있습니다.
     #
     # path_parts = path.strip("/").split("/")
-    # # path == "/item/<uuid>" 형태인지 확인
     # if http_method == "DELETE" and len(path_parts) == 2 and path_parts[0] == "item":
     #     item_id = path_parts[1]
     #     try:
