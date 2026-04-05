@@ -28,6 +28,15 @@ IMMUTABLE_FIELDS      = {"id", "created_at"}
 # created_at 컬럼이 없으면 False 로 바꾸세요
 USE_CREATED_AT = True
 
+# ----------------------------------------------------------
+# ID 추출 방식: "query" 또는 "path" 중 하나를 선택하세요.
+#   "query" → GET/PUT/PATCH /item?id=<id>   (쿼리 파라미터 방식)
+#   "path"  → GET/PUT/PATCH /item/<id>      (패스 파라미터 방식)
+#
+# ⚠️  "path" 사용 시 API Gateway 리소스를 /item/{id} 로 설정해야 합니다.
+# ----------------------------------------------------------
+ID_SOURCE = "query"   # ← "query" 또는 "path"
+
 # ===========================================================
 # 내부 유틸
 # ===========================================================
@@ -49,33 +58,43 @@ def _response(status_code, body):
     }
 
 
+def _extract_id(event):
+    """ID_SOURCE 설정에 따라 Query 또는 Path 에서 id 추출"""
+    if ID_SOURCE == "path":
+        parts = event.get("path", "").strip("/").split("/")
+        return parts[1] if len(parts) == 2 else None
+    else:  # "query"
+        params = event.get("queryStringParameters") or {}
+        return params.get("id")
+
+
 # ===========================================================
 # 핸들러 — GET + POST + PUT + PATCH
 # ===========================================================
 # 지원 엔드포인트
 #   GET   /item           → 전체 조회
-#   GET   /item?id=<id>   → 단건 조회
+#   GET   /item?id=<id>   → 단건 조회  (ID_SOURCE="query")
+#   GET   /item/<id>      → 단건 조회  (ID_SOURCE="path")
 #   POST  /item           → 생성
-#   PUT   /item?id=<id>   → 전체 수정 (body 필드 전부 덮어씀)
-#   PATCH /item?id=<id>   → 부분 수정 (body 에 있는 필드만 수정)
-# -----------
-# Path Parameter 방식으로 바꾸려면?
-#   각 핸들러 함수 하단의 주석 블록을 참고하세요.
+#   PUT   /item?id=<id>   → 전체 수정  (ID_SOURCE="query")
+#   PUT   /item/<id>      → 전체 수정  (ID_SOURCE="path")
+#   PATCH /item?id=<id>   → 부분 수정  (ID_SOURCE="query")
+#   PATCH /item/<id>      → 부분 수정  (ID_SOURCE="path")
 # ===========================================================
 
 def lambda_handler(event, context):
     http_method = event.get("httpMethod", "")
     path        = event.get("path", "")
-    params      = event.get("queryStringParameters") or {}
+    path_base   = path.strip("/").split("/")[0]
 
-    if http_method == "GET"   and path == f"/{TABLE_NAME}":
-        return _handle_get(params)
+    if http_method == "GET"   and path_base == TABLE_NAME:
+        return _handle_get(event)
     if http_method == "POST"  and path == f"/{TABLE_NAME}":
         return _handle_post(event)
-    if http_method == "PUT"   and path == f"/{TABLE_NAME}":
-        return _handle_update(params, event, full=True)
-    if http_method == "PATCH" and path == f"/{TABLE_NAME}":
-        return _handle_update(params, event, full=False)
+    if http_method == "PUT"   and path_base == TABLE_NAME:
+        return _handle_update(event, full=True)
+    if http_method == "PATCH" and path_base == TABLE_NAME:
+        return _handle_update(event, full=False)
 
     return _response(405, {"message": "Method Not Allowed"})
 
@@ -84,8 +103,8 @@ def lambda_handler(event, context):
 # GET 처리
 # ===========================================================
 
-def _handle_get(params):
-    item_id = params.get("id")
+def _handle_get(event):
+    item_id = _extract_id(event)
     try:
         conn = _get_connection()
         with conn.cursor() as cur:
@@ -102,12 +121,6 @@ def _handle_get(params):
         return _response(200, result)
     except Exception as e:
         return _response(500, {"message": str(e)})
-
-    # [Path Parameter 방식 — 해제하면 사용 가능]
-    # path_parts = path.strip("/").split("/")
-    # if len(path_parts) == 2 and path_parts[0] == TABLE_NAME:
-    #     item_id = path_parts[1]
-    #     ...  (단건 조회 로직)
 
 
 # ===========================================================
@@ -143,13 +156,13 @@ def _handle_post(event):
 # ===========================================================
 # PUT   : body 의 UPDATE_ALLOWED_FIELDS 를 모두 덮어씁니다.
 # PATCH : body 에 포함된 필드만 선택적으로 수정합니다.
-# 두 메서드 모두 IMMUTABLE_FIELDS 는 수정 불가입니다.
+# 두 메서드 모두 IMMUTABLE_FIELDS(id, created_at)는 수정 불가입니다.
 # ===========================================================
 
-def _handle_update(params, event, full: bool):
-    item_id = params.get("id")
+def _handle_update(event, full: bool):
+    item_id = _extract_id(event)
     if not item_id:
-        return _response(400, {"message": "Query parameter 'id' is required"})
+        return _response(400, {"message": "'id' is required (query param or path segment)"})
     try:
         body = json.loads(event.get("body") or "{}")
         data = {
@@ -175,9 +188,3 @@ def _handle_update(params, event, full: bool):
         return _response(200, {"message": f"Item {action}", "id": item_id})
     except Exception as e:
         return _response(500, {"message": str(e)})
-
-    # [Path Parameter 방식 — 해제하면 사용 가능]
-    # path_parts = path.strip("/").split("/")
-    # if len(path_parts) == 2 and path_parts[0] == TABLE_NAME:
-    #     item_id = path_parts[1]
-    #     ...  (수정 로직 동일)

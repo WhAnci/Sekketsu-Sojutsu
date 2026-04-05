@@ -13,8 +13,17 @@ RDS_USER     = os.getenv("RDS_USER")
 RDS_PASSWORD = os.getenv("RDS_PASSWORD")
 RDS_DB       = os.getenv("RDS_DB")
 
-# 조회 대상 테이블 이름
+# 대상 테이블 이름
 TABLE_NAME = "item"
+
+# ----------------------------------------------------------
+# ID 추출 방식: "query" 또는 "path" 중 하나를 선택하세요.
+#   "query" → GET /item?id=<id>     (쿼리 파라미터 방식)
+#   "path"  → GET /item/<id>        (패스 파라미터 방식)
+#
+# ⚠️  "path" 사용 시 API Gateway 리소스를 /item/{id} 로 설정해야 합니다.
+# ----------------------------------------------------------
+ID_SOURCE = "query"   # ← "query" 또는 "path"
 
 # ===========================================================
 # 내부 유틸
@@ -37,30 +46,34 @@ def _response(status_code, body):
     }
 
 
+def _extract_id(event):
+    """ID_SOURCE 설정에 따라 Query 또는 Path 에서 id 추출"""
+    if ID_SOURCE == "path":
+        parts = event.get("path", "").strip("/").split("/")
+        return parts[1] if len(parts) == 2 else None
+    else:  # "query"
+        params = event.get("queryStringParameters") or {}
+        return params.get("id")
+
+
 # ===========================================================
 # 핸들러 — GET 단건 / 전체 조회
 # ===========================================================
 # 지원 엔드포인트
 #   GET /item           → 전체 조회
-#   GET /item?id=<id>   → 단건 조회
-# -----------
-# Path Parameter 방식으로 바꾸려면?
-#   아래 주석 블록을 해제하고 Query Parameter 블록을 주석 처리하세요.
-# -----------
-# [Path Parameter 방식 — 해제하면 사용 가능]
-# path_parts = path.strip("/").split("/")
-# if http_method == "GET" and len(path_parts) == 2 and path_parts[0] == TABLE_NAME:
-#     item_id = path_parts[1]
-#     ...  (단건 조회 로직)
+#   GET /item?id=<id>   → 단건 조회  (ID_SOURCE="query")
+#   GET /item/<id>      → 단건 조회  (ID_SOURCE="path")
 # ===========================================================
 
 def lambda_handler(event, context):
     http_method = event.get("httpMethod", "")
     path        = event.get("path", "")
-    params      = event.get("queryStringParameters") or {}
 
-    if http_method == "GET" and path == f"/{TABLE_NAME}":
-        return _handle_get(params)
+    # Path 방식일 때는 /item/<id> 도 GET 라우팅에 포함
+    path_base = path.strip("/").split("/")[0]
+
+    if http_method == "GET" and path_base == TABLE_NAME:
+        return _handle_get(event)
 
     return _response(405, {"message": "Method Not Allowed"})
 
@@ -69,8 +82,8 @@ def lambda_handler(event, context):
 # GET 처리
 # ===========================================================
 
-def _handle_get(params):
-    item_id = params.get("id")
+def _handle_get(event):
+    item_id = _extract_id(event)
     try:
         conn = _get_connection()
         with conn.cursor() as cur:

@@ -24,6 +24,15 @@ CREATE_ALLOWED_FIELDS = ["name", "category", "price"]
 # created_at 컬럼이 없으면 False 로 바꾸세요
 USE_CREATED_AT = True
 
+# ----------------------------------------------------------
+# ID 추출 방식: "query" 또는 "path" 중 하나를 선택하세요.
+#   "query" → GET /item?id=<id>     (쿼리 파라미터 방식)
+#   "path"  → GET /item/<id>        (패스 파라미터 방식)
+#
+# ⚠️  "path" 사용 시 API Gateway 리소스를 /item/{id} 로 설정해야 합니다.
+# ----------------------------------------------------------
+ID_SOURCE = "query"   # ← "query" 또는 "path"
+
 # ===========================================================
 # 내부 유틸
 # ===========================================================
@@ -45,23 +54,33 @@ def _response(status_code, body):
     }
 
 
+def _extract_id(event):
+    """ID_SOURCE 설정에 따라 Query 또는 Path 에서 id 추출"""
+    if ID_SOURCE == "path":
+        parts = event.get("path", "").strip("/").split("/")
+        return parts[1] if len(parts) == 2 else None
+    else:  # "query"
+        params = event.get("queryStringParameters") or {}
+        return params.get("id")
+
+
 # ===========================================================
 # 핸들러 — GET + POST
 # ===========================================================
 # 지원 엔드포인트
 #   GET  /item           → 전체 조회
-#   GET  /item?id=<id>   → 단건 조회
+#   GET  /item?id=<id>   → 단건 조회  (ID_SOURCE="query")
+#   GET  /item/<id>      → 단건 조회  (ID_SOURCE="path")
 #   POST /item           → 생성 (body: CREATE_ALLOWED_FIELDS)
 # ===========================================================
 
 def lambda_handler(event, context):
     http_method = event.get("httpMethod", "")
     path        = event.get("path", "")
-    params      = event.get("queryStringParameters") or {}
+    path_base   = path.strip("/").split("/")[0]
 
-    if http_method == "GET" and path == f"/{TABLE_NAME}":
-        return _handle_get(params)
-
+    if http_method == "GET"  and path_base == TABLE_NAME:
+        return _handle_get(event)
     if http_method == "POST" and path == f"/{TABLE_NAME}":
         return _handle_post(event)
 
@@ -72,8 +91,8 @@ def lambda_handler(event, context):
 # GET 처리
 # ===========================================================
 
-def _handle_get(params):
-    item_id = params.get("id")
+def _handle_get(event):
+    item_id = _extract_id(event)
     try:
         conn = _get_connection()
         with conn.cursor() as cur:
