@@ -197,7 +197,7 @@ def lambda_handler(event, context):
             return _response(500, {"message": str(e)})
 
     # -------------------------------------------------------
-    # DELETE /item?id=<id> → 아이템 삭제
+    # DELETE /item?id=<id> → 아이템 삭제 (Query Parameter 방식)
     # -------------------------------------------------------
     if http_method == "DELETE" and path == "/item":
         item_id = params.get("id")
@@ -215,6 +215,29 @@ def lambda_handler(event, context):
             return _response(200, {"message": "Item deleted", "id": item_id})
         except Exception as e:
             return _response(500, {"message": str(e)})
+
+    # -------------------------------------------------------
+    # DELETE /item/{id} → 아이템 삭제 (Path Parameter 방식)
+    #   API Gateway 에서 리소스를 /item/{id} 로 설정하고
+    #   아래 주석을 해제하면 사용할 수 있습니다.
+    #
+    # path_parts = path.strip("/").split("/")
+    # # path == "/item/<uuid>" 형태인지 확인
+    # if http_method == "DELETE" and len(path_parts) == 2 and path_parts[0] == "item":
+    #     item_id = path_parts[1]
+    #     try:
+    #         conn = get_connection()
+    #         with conn.cursor() as cursor:
+    #             cursor.execute("DELETE FROM item WHERE id = %s", (item_id,))
+    #             if cursor.rowcount == 0:
+    #                 conn.close()
+    #                 return _response(404, {"message": "Item not found"})
+    #         conn.commit()
+    #         conn.close()
+    #         return _response(200, {"message": "Item deleted", "id": item_id})
+    #     except Exception as e:
+    #         return _response(500, {"message": str(e)})
+    # -------------------------------------------------------
 
     return _response(405, {"message": "Method Not Allowed"})
 
