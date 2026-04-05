@@ -2,6 +2,10 @@
 ## [SQL Generator](https://whanci.github.io/sql-generator/)
 ## [Layer](https://github.com/WhAnci/Sekketsu-Sojutsu/tree/main/Ketsujin/2026/Nikyu/module4/Layer)
 
+## API Gateway
+### [기본 연동 (REST API + Lambda Proxy)](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module4/APIGateway_basic.md)
+### [Cognito Authorizer](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module4/APIGateway_cognito.md)
+
 ## Function
 ### [function 1](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module4/lambda_function_1.py)
 - `GET /item` 전체 조회
