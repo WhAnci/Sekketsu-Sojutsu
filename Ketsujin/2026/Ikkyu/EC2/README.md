@@ -55,12 +55,12 @@ Description=App Service
 After=network.target
 
 [Service]
-User=ubuntu
-WorkingDirectory=/home/ubuntu/app
+User=ec2-user
+WorkingDirectory=/home/ec2-user/app
 EnvironmentFile=/etc/app.env
 ExecStart=/usr/bin/gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
-StandardOutput=journal
-StandardError=journal
+StandardOutput=append:/home/ec2-user/worldpay.log
+StandardError=append:/home/ec2-user/worldpay.log
 Restart=always
 
 [Install]
