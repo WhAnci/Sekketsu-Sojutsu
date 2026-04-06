@@ -59,6 +59,7 @@ User=ec2-user
 WorkingDirectory=/home/ec2-user/app
 EnvironmentFile=/etc/app.env
 ExecStart=/usr/bin/gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
+# fastapi uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 StandardOutput=append:/home/ec2-user/worldpay.log
 StandardError=append:/home/ec2-user/worldpay.log
 Restart=always
