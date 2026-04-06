@@ -16,9 +16,13 @@
 
 ### [function 3](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module4/lambda_function_3.py)
 - function 2 + `PUT /item?id=<id>` 수정 (id, created_at 불변)
+- `PATCH /item?id=<id>` 부분 수정
 
 ### [function 4](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module4/lambda_function_4.py)
-- function 3 + Filter(`category`, `price_lt`, `price_gt`) + Pagination(`limit`, `offset`)
+- function 3 + `updated_at` 자동 저장 (생성 시 기록, 수정 시 자동 갱신)
 
 ### [function 5](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module4/lambda_function_5.py)
-- function 4 + `DELETE /item?id=<id>` 삭제 → CRUD 완성
+- function 4(구 function 3) + Filter(`category`, `price_lt`, `price_gt`) + Pagination(`limit`, `offset`)
+
+### [function 6](https://github.com/WhAnci/Sekketsu-Sojutsu/blob/main/Ketsujin/2026/Nikyu/module4/lambda_function_6.py)
+- function 5(구 function 4) + `DELETE /item?id=<id>` 삭제 → CRUD 완성
