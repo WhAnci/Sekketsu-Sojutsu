@@ -26,9 +26,11 @@ UPDATE_ALLOWED_FIELDS = ["name", "category", "price"]
 IMMUTABLE_FIELDS      = {"id", "created_at"}
 
 # GET 필터: 동등(=) 조건 컬럼 목록
+# 예) category → GET /item?category=food
 FILTER_FIELDS       = ["category"]
 
 # GET 필터: 범위 조건 컬럼 목록
+# 예) price → GET /item?price_lt=5000&price_gt=1000
 FILTER_RANGE_FIELDS = ["price"]
 
 # 페이지당 기본 조회 건수
@@ -39,8 +41,8 @@ USE_CREATED_AT = True
 
 # ----------------------------------------------------------
 # ID 추출 방식: "query" 또는 "path" 중 하나를 선택하세요.
-#   "query" → GET/PUT/PATCH/DELETE /item?id=<id>   (쿼리 파라미터 방식)
-#   "path"  → GET/PUT/PATCH/DELETE /item/<id>      (패스 파라미터 방식)
+#   "query" → GET/PUT /item?id=<id>   (쿼리 파라미터 방식)
+#   "path"  → GET/PUT /item/<id>      (패스 파라미터 방식)
 #
 # ⚠️  "path" 사용 시 API Gateway 리소스를 /item/{id} 로 설정해야 합니다.
 # ----------------------------------------------------------
@@ -96,22 +98,18 @@ def _build_filter_clause(params):
 
 
 # ===========================================================
-# 핸들러 — GET + POST + PUT + PATCH + DELETE
+# 핸들러 — GET + POST + PUT
 # ===========================================================
 # 지원 엔드포인트
-#   GET    /item                     → 전체 조회 (Filter + Pagination)
-#   GET    /item?id=<id>             → 단건 조회  (ID_SOURCE="query")
-#   GET    /item/<id>                → 단건 조회  (ID_SOURCE="path")
-#   GET    /item?category=food       → 필터 조회
-#   GET    /item?price_lt=5000       → 범위 필터
-#   GET    /item?limit=10&offset=0   → 페이지네이션
-#   POST   /item                     → 생성
-#   PUT    /item?id=<id>             → 전체 수정  (ID_SOURCE="query")
-#   PUT    /item/<id>                → 전체 수정  (ID_SOURCE="path")
-#   PATCH  /item?id=<id>             → 부분 수정  (ID_SOURCE="query")
-#   PATCH  /item/<id>                → 부분 수정  (ID_SOURCE="path")
-#   DELETE /item?id=<id>             → 삭제  (ID_SOURCE="query")
-#   DELETE /item/<id>                → 삭제  (ID_SOURCE="path")
+#   GET  /item                     → 전체 조회 (Filter + Pagination)
+#   GET  /item?id=<id>             → 단건 조회  (ID_SOURCE="query")
+#   GET  /item/<id>                → 단건 조회  (ID_SOURCE="path")
+#   GET  /item?category=food       → 필터 조회
+#   GET  /item?price_lt=5000       → 범위 필터 조회
+#   GET  /item?limit=10&offset=0   → 페이지네이션
+#   POST /item                     → 생성
+#   PUT  /item?id=<id>             → 수정  (ID_SOURCE="query")
+#   PUT  /item/<id>                → 수정  (ID_SOURCE="path")
 # ===========================================================
 
 def lambda_handler(event, context):
@@ -119,16 +117,12 @@ def lambda_handler(event, context):
     path        = event.get("path", "")
     path_base   = path.strip("/").split("/")[0]
 
-    if http_method == "GET"    and path_base == TABLE_NAME:
+    if http_method == "GET"  and path_base == TABLE_NAME:
         return _handle_get(event)
-    if http_method == "POST"   and path == f"/{TABLE_NAME}":
+    if http_method == "POST" and path == f"/{TABLE_NAME}":
         return _handle_post(event)
-    if http_method == "PUT"    and path_base == TABLE_NAME:
+    if http_method == "PUT"  and path_base == TABLE_NAME:
         return _handle_update(event, full=True)
-    if http_method == "PATCH"  and path_base == TABLE_NAME:
-        return _handle_update(event, full=False)
-    if http_method == "DELETE" and path_base == TABLE_NAME:
-        return _handle_delete(event)
 
     return _response(405, {"message": "Method Not Allowed"})
 
@@ -195,11 +189,9 @@ def _handle_post(event):
 
 
 # ===========================================================
-# PUT / PATCH 처리  (full=True → PUT, full=False → PATCH)
+# PUT 처리
 # ===========================================================
-# PUT   : body 의 UPDATE_ALLOWED_FIELDS 를 모두 덮어씁니다.
-# PATCH : body 에 포함된 필드만 선택적으로 수정합니다.
-# 두 메서드 모두 IMMUTABLE_FIELDS(id, created_at)는 수정 불가입니다.
+# IMMUTABLE_FIELDS(id, created_at)는 수정 불가입니다.
 # ===========================================================
 
 def _handle_update(event, full: bool):
@@ -229,27 +221,5 @@ def _handle_update(event, full: bool):
         conn.close()
         action = "updated" if full else "patched"
         return _response(200, {"message": f"Item {action}", "id": item_id})
-    except Exception as e:
-        return _response(500, {"message": str(e)})
-
-
-# ===========================================================
-# DELETE 처리
-# ===========================================================
-
-def _handle_delete(event):
-    item_id = _extract_id(event)
-    if not item_id:
-        return _response(400, {"message": "'id' is required (query param or path segment)"})
-    try:
-        conn = _get_connection()
-        with conn.cursor() as cur:
-            cur.execute(f"DELETE FROM {TABLE_NAME} WHERE id = %s", (item_id,))
-            if cur.rowcount == 0:
-                conn.close()
-                return _response(404, {"message": "Item not found"})
-        conn.commit()
-        conn.close()
-        return _response(200, {"message": "Item deleted", "id": item_id})
     except Exception as e:
         return _response(500, {"message": str(e)})
