@@ -1,0 +1,21 @@
+{
+  "name": "skills-creator-agent",
+  "description": "Agent for creating Kiro skills using AWS knowledge",
+  "tools": [
+    "read",
+    "write",
+    "glob",
+    "grep",
+    "@aws-knowledge-mcp-server"
+  ],
+  "resources": [
+    "skill://.kiro/skills/skill-creator/**"
+  ],
+  "mcpServers": {
+    "aws-knowledge-mcp-server": {
+      "url": "https://knowledge-mcp.global.api.aws",
+      "type": "http",
+      "disabled": false
+    }
+  }
+}
