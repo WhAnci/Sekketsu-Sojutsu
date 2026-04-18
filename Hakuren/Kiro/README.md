@@ -39,5 +39,5 @@ uvx awslabs.terraform-mcp-server@latest --help
 }
 ```
 ## 주의
--`command`는 `uvx`가 아닌 절대경로로 지정해야 PATH 인식 문제를 방지할 수 있습니다. </br>
+- `command`는 `uvx`가 아닌 절대경로로 지정해야 PATH 인식 문제를 방지할 수 있습니다. </br>
 - 설정 저장 후 Kiro CLI를 재시작해야 MCP 서버가 연결됨
